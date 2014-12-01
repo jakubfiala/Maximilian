@@ -13,6 +13,7 @@
 #include "maxiFFT.h"
 #include <math.h>
 #include <iostream>
+#include <algorithm>
 #include <cstdlib>
 #ifdef __APPLE_CC__
 #include <Accelerate/Accelerate.h>
@@ -44,7 +45,66 @@ public:
         }
     }
     
-    void loudness(float* powerSpectrum) {
+    double* loudness(float* powerSpectrum, std::string type) {
+        bbLimits[0] = 0;
+        int currentBandEnd = barkScale[specSize-1]/NUM_BARK_BANDS;
+        int currentBand = 1;
+        
+        for(int i = 0; i<specSize; i++){
+            while(barkScale[i] > currentBandEnd) {
+                bbLimits[currentBand++] = i;
+                currentBandEnd = currentBand*barkScale[specSize-1]/NUM_BARK_BANDS;
+            }
+        }
+        
+        bbLimits[NUM_BARK_BANDS] = specSize-1;
+        
+        if (type == "specific") {
+            for (int i = 0; i < NUM_BARK_BANDS; i++){
+                double sum = 0;
+                for (int j = bbLimits[i] ; j < bbLimits[i+1] ; j++) {
+                    
+                    sum += normalisedSpectrum[j];
+                }
+                specificLoudness[i] = Math.pow(sum,0.23);
+            }
+            
+            return specificLoudness;
+        }
+        else if (type == "relative") {
+            for (int i = 0; i < NUM_BARK_BANDS; i++){
+                double sum = 0;
+                for (int j = bbLimits[i] ; j < bbLimits[i+1] ; j++) {
+                    
+                    sum += normalisedSpectrum[j];
+                }
+                specificLoudness[i] = Math.pow(sum,0.23);
+            }
+            
+            double max = std::max_element(specificLoudness[0], specificLoudness[23]);
+            
+            for (int i = 0; i < NUM_BARK_BANDS; i++){
+                relativeLoudness[i] = max/specificLoudness[i];
+            }
+            
+            return relativeLoudness;
+        }
+        else { //default is total
+            for (int i = 0; i < NUM_BARK_BANDS; i++){
+                double sum = 0;
+                for (int j = bbLimits[i] ; j < bbLimits[i+1] ; j++) {
+                    
+                    sum += normalisedSpectrum[j];
+                }
+                specificLoudness[i] = Math.pow(sum,0.23);
+            }
+            
+            for (int i = 0; i < 24; i++){
+                totalLoudness += specificLoudness[i];
+            }
+            
+            return totalLoudness;
+        }
         
         
         
@@ -53,6 +113,7 @@ private:
     int* bbLimits;
     unsigned int sampleRate, bufferSize, specSize;
     double* barkScale;
+    double* specificLoudness, totalLoudness, relativeLoudness;
     
 };
 
